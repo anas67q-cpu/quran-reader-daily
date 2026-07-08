@@ -98,23 +98,31 @@ function Reader() {
         </button>
       </header>
 
-      {/* Page image — full space, centered, preserved aspect */}
-      <div className="relative flex-1 flex items-center justify-center overflow-hidden px-2">
+      {/* Page image — full space, centered, preserved aspect, on warm paper */}
+      <div className="relative flex-1 flex items-center justify-center overflow-hidden p-3">
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
             <Loader2 className="size-6 animate-spin" />
           </div>
         )}
         {src && (
-          <img
-            key={viewPage}
-            src={src}
-            alt={`صفحة ${viewPage} — سورة ${surah.name}`}
-            className="max-h-full max-w-full h-auto w-auto object-contain select-none animate-in-up"
-            style={{ filter: "drop-shadow(0 10px 30px rgba(0,0,0,0.5))" }}
-            draggable={false}
-          />
+          <div
+            className="flex h-full w-full items-center justify-center rounded-2xl"
+            style={{
+              background: "linear-gradient(180deg, #f7f1e3 0%, #f0e6d0 100%)",
+              boxShadow: "0 20px 60px -20px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(163,145,113,0.25)",
+            }}
+          >
+            <img
+              key={viewPage}
+              src={src}
+              alt={`صفحة ${viewPage} — سورة ${surah.name}`}
+              className="max-h-full max-w-full h-auto w-auto object-contain select-none animate-in-up"
+              draggable={false}
+            />
+          </div>
         )}
+
 
         {/* Tap zones for page navigation */}
         <button
