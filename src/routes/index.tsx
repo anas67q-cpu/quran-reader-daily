@@ -4,7 +4,7 @@ import { Flame, ArrowLeft, Sparkles } from "lucide-react";
 import { TabBar } from "@/components/TabBar";
 import { useApp, effectiveDailyGoal, isTodayComplete, todayString } from "@/lib/store";
 import { surahForPage, juzForPage, toArabicDigits, TOTAL_PAGES } from "@/lib/quran-meta";
-import { verseForDate, VERSES } from "@/lib/verses";
+import { verseForDate, VERSES, adhkarForDate } from "@/lib/verses";
 import { hijriToday } from "@/lib/hijri";
 
 export const Route = createFileRoute("/")({
@@ -135,10 +135,11 @@ function Home() {
             ذكر اليوم
           </p>
           <p className="font-quran-body text-lg leading-relaxed text-foreground/90 text-center">
-            {useApp.getState() && ""}
-            <AdhkarLine />
+            {adhkarForDate()}
           </p>
         </section>
+
+
 
         <p className="text-center text-[10px] text-muted-foreground">
           {toArabicDigits(TOTAL_PAGES)} صفحة • مصحف المدينة
@@ -150,10 +151,8 @@ function Home() {
   );
 }
 
-function AdhkarLine() {
-  const { adhkarForDate } = require("@/lib/verses") as typeof import("@/lib/verses");
-  return <>{adhkarForDate()}</>;
-}
+
+
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
