@@ -20,7 +20,7 @@ function Onboarding() {
   const [step, setStep] = useState<Step>(0);
   const [nameInput, setNameInput] = useState("");
 
-  const next = () => setStep((s) => Math.min(3, (s + 1) as Step));
+  const next = () => setStep((s) => (Math.min(3, s + 1) as Step));
 
   const finish = async () => {
     setName(nameInput.trim());
