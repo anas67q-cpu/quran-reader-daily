@@ -171,9 +171,10 @@ export const useApp = create<AppState>()(
       name: "iqra-app-v1",
       storage: createJSONStorage(() =>
         typeof window === "undefined"
-          ? ({ getItem: () => null, setItem: () => {}, removeItem: () => {} } as Storage)
+          ? (undefined as unknown as Storage)
           : window.localStorage,
       ),
+      skipHydration: false,
     },
   ),
 );
