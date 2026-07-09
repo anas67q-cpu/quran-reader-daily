@@ -1,15 +1,16 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ChevronLeft, Mail, Send, Trash2, Download, Bell, Sparkles, RefreshCw } from "lucide-react";
-import { useApp, type DailyGoal } from "@/lib/store";
+import { ChevronLeft, Mail, Send, Trash2, Download, Bell, RefreshCw, Minus, Plus } from "lucide-react";
+import { useApp } from "@/lib/store";
 import { toArabicDigits } from "@/lib/quran-meta";
-import { VERSES } from "@/lib/verses";
 import { cachedCount, clearCache } from "@/lib/page-cache";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "الإعدادات — إقرأ" }] }),
   component: Settings,
 });
+
+const APP_VERSION = "1.0.1";
 
 function Settings() {
   const s = useApp();
@@ -34,7 +35,7 @@ function Settings() {
   };
 
   return (
-    <div dir="rtl" className="min-h-screen bg-background pb-32">
+    <div dir="rtl" className="min-h-screen bg-background pb-16">
       <div className="mx-auto w-full max-w-[420px] px-6 pt-12">
         <header className="flex items-center gap-3 mb-8">
           <Link
@@ -48,23 +49,35 @@ function Settings() {
         </header>
 
         <Section title="ورد اليوم">
-          <Row label="عدد الصفحات">
-            <div className="flex gap-1.5">
-              {[1, 2, 3].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => s.setDailyGoal(n as DailyGoal)}
-                  className={`size-9 rounded-xl text-sm font-semibold transition-colors ${
-                    s.dailyGoal === n
-                      ? "bg-brass text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {toArabicDigits(n)}
-                </button>
-              ))}
+          <div className="p-4">
+            <p className="mb-3 text-xs text-muted-foreground">
+              اختر عدد الصفحات التي تلتزم بقراءتها يوميًا.
+            </p>
+            <div className="flex items-center justify-between rounded-2xl bg-muted p-2">
+              <button
+                onClick={() => s.setDailyGoal(s.dailyGoal - 1)}
+                disabled={s.dailyGoal <= 1}
+                className="flex size-10 items-center justify-center rounded-xl bg-card ring-1 ring-border disabled:opacity-30"
+                aria-label="إنقاص"
+              >
+                <Minus className="size-4" />
+              </button>
+              <div className="text-center leading-tight">
+                <div className="text-3xl font-semibold tabular-nums">
+                  {toArabicDigits(s.dailyGoal)}
+                </div>
+                <div className="text-[11px] text-muted-foreground">صفحة يوميًا</div>
+              </div>
+              <button
+                onClick={() => s.setDailyGoal(s.dailyGoal + 1)}
+                disabled={s.dailyGoal >= 50}
+                className="flex size-10 items-center justify-center rounded-xl bg-card ring-1 ring-border disabled:opacity-30"
+                aria-label="زيادة"
+              >
+                <Plus className="size-4" />
+              </button>
             </div>
-          </Row>
+          </div>
           <Row label="من">
             <HourPicker
               value={s.reminder.startHour}
@@ -90,29 +103,6 @@ function Settings() {
               }}
             />
           </Row>
-        </Section>
-
-        <Section title="الودجت وآية اليوم">
-          <Row label={<><Sparkles className="size-4 inline ml-1" />آية عشوائية يوميًا</>}>
-            <Toggle
-              checked={s.favoriteVerseIdx === null}
-              onChange={(v) => s.setFavoriteVerse(v ? null : 0)}
-            />
-          </Row>
-          {s.favoriteVerseIdx !== null && (
-            <div className="p-4 border-t border-hairline">
-              <p className="text-xs text-muted-foreground mb-2">الآية المفضّلة</p>
-              <select
-                value={s.favoriteVerseIdx}
-                onChange={(e) => s.setFavoriteVerse(Number(e.target.value))}
-                className="w-full rounded-xl bg-muted px-3 py-3 text-sm font-quran-body outline-none"
-              >
-                {VERSES.map((v, i) => (
-                  <option key={i} value={i} className="bg-card">{v.text.slice(0, 40)} — {v.ref}</option>
-                ))}
-              </select>
-            </div>
-          )}
         </Section>
 
         <Section title="التقدم والبيانات">
@@ -155,7 +145,9 @@ function Settings() {
             <p className="text-xs text-muted-foreground leading-relaxed">
               رفيق هادئ لبناء عادة قراءة القرآن يوميًا، بواجهة عربية أصيلة وصفحات مصحف المدينة عالية الجودة.
             </p>
-            <p className="text-[10px] text-muted-foreground mt-3">الإصدار ١٫٠٫٠</p>
+            <p className="text-[10px] text-muted-foreground mt-3">
+              الإصدار {toArabicDigits(APP_VERSION)}
+            </p>
           </div>
         </Section>
 

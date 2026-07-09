@@ -1,17 +1,16 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Flame, ArrowLeft, Sparkles } from "lucide-react";
-import { TabBar } from "@/components/TabBar";
+import { Flame, ArrowLeft, Settings as SettingsIcon } from "lucide-react";
 import { useApp, effectiveDailyGoal, isTodayComplete, todayString } from "@/lib/store";
 import { surahForPage, juzForPage, toArabicDigits, TOTAL_PAGES } from "@/lib/quran-meta";
-import { verseForDate, VERSES, adhkarForDate } from "@/lib/verses";
+import { adhkarForDate } from "@/lib/verses";
 import { hijriToday } from "@/lib/hijri";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "إقرأ: كل يوم — الرئيسية" },
-      { name: "description", content: "لوحتك اليومية: ورد اليوم، التقدم، وآية ملهمة." },
+      { name: "description", content: "لوحتك اليومية: ورد اليوم والتقدم في قراءة القرآن." },
     ],
   }),
   component: Home,
@@ -24,7 +23,6 @@ function Home() {
 
   if (hydrated && !s.onboarded) return <Navigate to="/onboarding" />;
 
-  // Reset daily counters on a new day for display purposes.
   const today = todayString();
   const dayChanged = s.lastReadDate && s.lastReadDate !== today;
   const todayPagesRead = dayChanged ? 0 : s.todayPagesRead;
@@ -35,30 +33,30 @@ function Home() {
 
   const surah = surahForPage(s.currentPage);
   const juz = juzForPage(s.currentPage);
-  const verse = s.favoriteVerseIdx != null ? VERSES[s.favoriteVerseIdx] : verseForDate();
 
   const greetingHour = new Date().getHours();
   const greeting =
     greetingHour < 12 ? "صباح الخير" : greetingHour < 18 ? "مساء الخير" : "أسعد الله مساءك";
 
   return (
-    <div dir="rtl" className="min-h-screen bg-background pb-32">
+    <div dir="rtl" className="min-h-screen bg-background pb-10">
       <div className="mx-auto flex w-full max-w-[420px] flex-col gap-7 px-6 pt-12">
-        {/* Header */}
+        {/* Header — settings icon lives in the top-left corner */}
         <header className="flex items-start justify-between animate-in-up">
-          <div className="space-y-0.5">
+          <Link
+            to="/settings"
+            aria-label="الإعدادات"
+            className="flex size-10 items-center justify-center rounded-full bg-card ring-1 ring-border order-first"
+            style={{ marginInlineEnd: "auto" }}
+          >
+            <SettingsIcon className="size-5 text-foreground/80" strokeWidth={1.8} />
+          </Link>
+          <div className="space-y-0.5 text-right">
             <p className="text-xs text-muted-foreground">{hijriToday() || "\u00A0"}</p>
             <h1 className="text-xl font-semibold tracking-tight">
               {greeting}{s.name ? `، ${s.name}` : ""}
             </h1>
           </div>
-          <Link
-            to="/settings"
-            aria-label="الإعدادات"
-            className="flex size-10 items-center justify-center rounded-full bg-card ring-1 ring-border"
-          >
-            <span className="size-2 rounded-full bg-brass" />
-          </Link>
         </header>
 
         {/* Progress ring */}
@@ -112,47 +110,23 @@ function Home() {
           </Link>
         </section>
 
-        {/* Verse of the day */}
-        <section className="relative overflow-hidden rounded-3xl bg-card p-6 ring-1 ring-border animate-in-up" style={{ animationDelay: "180ms" }}>
-          <div className="absolute -top-8 -left-8 size-32 rounded-full bg-brass/5 blur-3xl" />
-          <div className="mb-4 flex items-center gap-2">
-            <Sparkles className="size-3.5 text-brass" />
-            <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-              آية اليوم
-            </h3>
-          </div>
-          <p className="font-quran-body text-2xl leading-loose text-center text-foreground/95 py-3">
-            <span className="text-brass/70">﴿ </span>
-            <bdi>{verse.text}</bdi>
-            <span className="text-brass/70"> ﴾</span>
-          </p>
-          <p className="mt-2 text-xs text-muted-foreground text-left">{verse.ref}</p>
-        </section>
-
-        {/* Adhkar mini widget */}
-        <section className="rounded-3xl bg-surface/60 p-5 ring-1 ring-hairline animate-in-up" style={{ animationDelay: "240ms" }}>
-          <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-2">
+        {/* Adhkar */}
+        <section className="rounded-3xl bg-surface/60 p-5 ring-1 ring-hairline animate-in-up" style={{ animationDelay: "180ms" }}>
+          <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-3">
             ذكر اليوم
           </p>
-          <p className="font-quran-body text-lg leading-relaxed text-foreground/90 text-center">
+          <p className="font-quran-body text-lg leading-loose text-foreground/90 text-center">
             {adhkarForDate()}
           </p>
         </section>
-
-
 
         <p className="text-center text-[10px] text-muted-foreground">
           {toArabicDigits(TOTAL_PAGES)} صفحة • مصحف المدينة
         </p>
       </div>
-
-      <TabBar />
     </div>
   );
 }
-
-
-
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
