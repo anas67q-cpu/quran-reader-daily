@@ -1,22 +1,21 @@
 // Central persistent state via zustand + localStorage.
-// Everything the user needs to resume reading survives an app restart.
+// Reading progress commits only when the user presses "انتهيت".
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { TOTAL_PAGES } from "./quran-meta";
 
-export type DailyGoal = 1 | 2 | 3;
+// Kept as an alias for backwards compatibility; the goal is now any positive integer.
+export type DailyGoal = number;
 
 export interface ReminderRange {
-  startHour: number; // 0-23
-  endHour: number; // 0-23
+  startHour: number;
+  endHour: number;
 }
 
 interface AppState {
-  // Onboarding
   onboarded: boolean;
   setOnboarded: (v: boolean) => void;
 
-  // Preferences
   name: string;
   setName: (n: string) => void;
 
@@ -29,30 +28,28 @@ interface AppState {
   notificationsEnabled: boolean;
   setNotificationsEnabled: (v: boolean) => void;
 
-  // Reading progress
-  currentPage: number; // next page to read
-  todayStartPage: number; // first page of today's session
-  todayPagesRead: number; // pages completed today
-  lastReadDate: string; // YYYY-MM-DD
-  extendedGoalToday: number; // extra unlocked pages after finishing daily goal
+  // Next page the user will read (last saved position).
+  currentPage: number;
+  // Pages completed today (across sessions).
+  todayPagesRead: number;
+  lastReadDate: string;
 
-  // Lifetime stats
   totalPagesRead: number;
   streak: number;
   completedDays: number;
   khatmaCount: number;
 
-  // Widget / verse
-  favoriteVerseIdx: number | null; // null => daily random
+  favoriteVerseIdx: number | null;
   setFavoriteVerse: (idx: number | null) => void;
 
-  // Actions
-  markPageRead: () => void;
-  extendGoal: (extra: number) => void;
-  finishSession: () => void; // "انتهيت" button
+  // Commit reading progress up to (and including) endPage.
+  // Called ONLY when the user presses "انتهيت".
+  // Returns true when a Khatma was just completed.
+  commitReading: (endPage: number) => boolean;
+  // Start a fresh Mushaf after Khatma without touching the counter.
+  startNewKhatma: () => void;
   resetProgress: () => void;
 
-  // Update dismissal
   dismissedVersion: string | null;
   dismissVersion: (v: string) => void;
 }
@@ -65,9 +62,9 @@ function today(): string {
 function daysBetween(a: string, b: string): number {
   const [y1, m1, d1] = a.split("-").map(Number);
   const [y2, m2, d2] = b.split("-").map(Number);
-  const t1 = new Date(y1, m1 - 1, d1).getTime();
-  const t2 = new Date(y2, m2 - 1, d2).getTime();
-  return Math.round((t2 - t1) / 86400000);
+  return Math.round(
+    (new Date(y2, m2 - 1, d2).getTime() - new Date(y1, m1 - 1, d1).getTime()) / 86400000,
+  );
 }
 
 export const useApp = create<AppState>()(
@@ -80,7 +77,7 @@ export const useApp = create<AppState>()(
       setName: (n) => set({ name: n }),
 
       dailyGoal: 1,
-      setDailyGoal: (g) => set({ dailyGoal: g }),
+      setDailyGoal: (g) => set({ dailyGoal: Math.max(1, Math.min(50, Math.round(g))) }),
 
       reminder: { startHour: 20, endHour: 22 },
       setReminder: (r) => set({ reminder: r }),
@@ -89,10 +86,8 @@ export const useApp = create<AppState>()(
       setNotificationsEnabled: (v) => set({ notificationsEnabled: v }),
 
       currentPage: 1,
-      todayStartPage: 1,
       todayPagesRead: 0,
       lastReadDate: "",
-      extendedGoalToday: 0,
 
       totalPagesRead: 0,
       streak: 0,
@@ -102,33 +97,35 @@ export const useApp = create<AppState>()(
       favoriteVerseIdx: null,
       setFavoriteVerse: (idx) => set({ favoriteVerseIdx: idx }),
 
-      markPageRead: () => {
+      commitReading: (endPage) => {
         const s = get();
         const t = today();
-        // Reset daily counters when the day changes
-        let todayPagesRead = s.todayPagesRead;
-        let todayStartPage = s.todayStartPage;
-        let extendedGoalToday = s.extendedGoalToday;
-        if (s.lastReadDate !== t) {
-          todayPagesRead = 0;
-          todayStartPage = s.currentPage;
-          extendedGoalToday = 0;
-        }
-        let nextPage = s.currentPage + 1;
-        let khatmaCount = s.khatmaCount;
-        let totalPagesRead = s.totalPagesRead + 1;
-        if (nextPage > TOTAL_PAGES) {
-          nextPage = 1;
-          khatmaCount += 1;
-        }
-        todayPagesRead += 1;
+        const from = s.currentPage;
+        // Pages the user just read in this session (must be a forward move).
+        const sessionCount = Math.max(0, endPage - from + 1);
+        if (sessionCount === 0) return false;
 
-        // Streak / completedDays update on hitting daily goal (first time today)
+        // Roll daily counters when the day changed.
+        const isNewDay = s.lastReadDate !== t;
+        const prevTodayRead = isNewDay ? 0 : s.todayPagesRead;
+        const newTodayRead = prevTodayRead + sessionCount;
+
+        // Khatma bookkeeping.
+        let khatmaCount = s.khatmaCount;
+        let nextPage = endPage + 1;
+        let khatmaDone = false;
+        if (nextPage > TOTAL_PAGES) {
+          khatmaCount += 1;
+          khatmaDone = true;
+          nextPage = 1; // Reset to Al-Fatihah for the next Khatma.
+        }
+
+        // Streak + completed days when today's goal is met for the first time.
         let streak = s.streak;
         let completedDays = s.completedDays;
         const goal = s.dailyGoal;
-        const justCompletedGoal = s.todayPagesRead < goal && todayPagesRead >= goal;
-        if (justCompletedGoal) {
+        const justHitGoal = prevTodayRead < goal && newTodayRead >= goal;
+        if (justHitGoal) {
           const gap = s.lastReadDate ? daysBetween(s.lastReadDate, t) : 1;
           streak = gap === 1 ? streak + 1 : gap === 0 ? Math.max(streak, 1) : 1;
           completedDays += 1;
@@ -136,28 +133,24 @@ export const useApp = create<AppState>()(
 
         set({
           currentPage: nextPage,
-          todayPagesRead,
-          todayStartPage,
-          extendedGoalToday,
+          todayPagesRead: newTodayRead,
           lastReadDate: t,
-          totalPagesRead,
+          totalPagesRead: s.totalPagesRead + sessionCount,
           streak,
           completedDays,
           khatmaCount,
         });
+
+        return khatmaDone;
       },
 
-      extendGoal: (extra) => set({ extendedGoalToday: get().extendedGoalToday + extra }),
-
-      finishSession: () => set({ extendedGoalToday: 0 }),
+      startNewKhatma: () => set({ currentPage: 1 }),
 
       resetProgress: () =>
         set({
           currentPage: 1,
-          todayStartPage: 1,
           todayPagesRead: 0,
           lastReadDate: "",
-          extendedGoalToday: 0,
           totalPagesRead: 0,
           streak: 0,
           completedDays: 0,
@@ -174,20 +167,18 @@ export const useApp = create<AppState>()(
           ? (undefined as unknown as Storage)
           : window.localStorage,
       ),
-      skipHydration: false,
     },
   ),
 );
 
-// Derived helpers
 export function effectiveDailyGoal(s: AppState): number {
-  return s.dailyGoal + s.extendedGoalToday;
+  return s.dailyGoal;
 }
 
 export function isTodayComplete(s: AppState): boolean {
   const t = today();
   if (s.lastReadDate !== t) return false;
-  return s.todayPagesRead >= effectiveDailyGoal(s);
+  return s.todayPagesRead >= s.dailyGoal;
 }
 
 export function todayString() {

@@ -125,3 +125,19 @@
 @utility animate-in-up {
   animation: fadeInUp 0.5s cubic-bezier(0.32, 0.72, 0, 1) both;
 }
+
+/* Reader page transitions — RTL: next slides in from the left, prev from the right */
+@keyframes slideInFromLeft {
+  from { opacity: 0; transform: translateX(-6%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInFromRight {
+  from { opacity: 0; transform: translateX(6%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@utility animate-slide-in-next {
+  animation: slideInFromLeft 0.28s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@utility animate-slide-in-prev {
+  animation: slideInFromRight 0.28s cubic-bezier(0.32, 0.72, 0, 1) both;
+}

@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowLeft, Bell, BookOpen, Check } from "lucide-react";
-import { useApp, type DailyGoal } from "@/lib/store";
+import { ArrowLeft, Bell, BookOpen, Minus, Plus } from "lucide-react";
+import { useApp } from "@/lib/store";
 import { toArabicDigits } from "@/lib/quran-meta";
 
 export const Route = createFileRoute("/onboarding")({
@@ -74,31 +74,29 @@ function Onboarding() {
 
         {step === 1 && (
           <StepShell title="ورد اليوم" subtitle="اختر عدد الصفحات التي ستقرؤها كل يوم. يمكنك تغييره لاحقًا.">
-            <div className="mt-6 space-y-3">
-              {[1, 2, 3].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setDailyGoal(n as DailyGoal)}
-                  className={`w-full flex items-center justify-between rounded-2xl p-5 ring-1 transition-colors ${
-                    dailyGoal === n ? "bg-brass/10 ring-brass" : "bg-card ring-border"
-                  }`}
-                >
-                  <div className="text-right">
-                    <div className="text-lg font-semibold">{toArabicDigits(n)} صفحة</div>
-                    <div className="text-xs text-muted-foreground">
-                      {n === 1 && "أقل التزام، أفضل استدامة"}
-                      {n === 2 && "توازن جميل"}
-                      {n === 3 && "أعمق ارتباطًا بالقرآن"}
-                    </div>
-                  </div>
-                  {dailyGoal === n && (
-                    <div className="flex size-6 items-center justify-center rounded-full bg-brass">
-                      <Check className="size-3.5 text-primary-foreground" />
-                    </div>
-                  )}
-                </button>
-              ))}
+            <div className="mt-8 flex items-center justify-between rounded-2xl bg-card p-3 ring-1 ring-border">
+              <button
+                onClick={() => setDailyGoal(Math.max(1, dailyGoal - 1))}
+                className="flex size-12 items-center justify-center rounded-xl bg-muted"
+                aria-label="إنقاص"
+              >
+                <Minus className="size-5" />
+              </button>
+              <div className="text-center leading-tight">
+                <div className="text-4xl font-semibold tabular-nums">{toArabicDigits(dailyGoal)}</div>
+                <div className="mt-1 text-xs text-muted-foreground">صفحة يوميًا</div>
+              </div>
+              <button
+                onClick={() => setDailyGoal(Math.min(50, dailyGoal + 1))}
+                className="flex size-12 items-center justify-center rounded-xl bg-muted"
+                aria-label="زيادة"
+              >
+                <Plus className="size-5" />
+              </button>
             </div>
+            <p className="mt-4 text-xs text-muted-foreground text-center">
+              نصيحة: ابدأ بعدد صغير تلتزم به يوميًا، ثم زده تدريجيًا.
+            </p>
           </StepShell>
         )}
 
@@ -123,7 +121,7 @@ function Onboarding() {
         )}
 
         {step === 3 && (
-          <StepShell title="أذونات التنبيهات" subtitle="نستخدم تنبيهات المتصفح لتذكيرك بلطف — بلا إزعاج.">
+          <StepShell title="تفعيل التنبيهات" subtitle="نرسل لك تذكيرًا لطيفًا في وقتك المفضّل — بلا إزعاج.">
             <div className="my-10 flex items-center justify-center">
               <div className="relative flex size-32 items-center justify-center rounded-full bg-card ring-1 ring-border">
                 <Bell className="size-12 text-brass" strokeWidth={1.4} />
