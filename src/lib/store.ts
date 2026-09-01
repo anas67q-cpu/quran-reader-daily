@@ -42,6 +42,14 @@ interface AppState {
   favoriteVerseIdx: number | null;
   setFavoriteVerse: (idx: number | null) => void;
 
+  // Interactive Mushaf layer -------------------------------------------
+  highlights: Record<string, AyahHighlight>;
+  setHighlight: (h: AyahHighlight) => void;
+  removeHighlight: (key: string) => void;
+
+  bookmarks: AyahBookmark[];
+  toggleBookmark: (b: AyahBookmark) => void;
+
   // Commit reading progress up to (and including) endPage.
   // Called ONLY when the user presses "انتهيت".
   // Returns true when a Khatma was just completed.
