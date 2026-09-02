@@ -12,6 +12,28 @@ export interface ReminderRange {
   endHour: number;
 }
 
+export type HighlightColor = "gold" | "green" | "blue" | "rose" | "violet";
+
+export interface AyahHighlight {
+  key: string; // "surah:ayah"
+  surah: number;
+  ayah: number;
+  page: number;
+  color: HighlightColor;
+  x: number; // exact marker coordinate in Mushaf page units
+  y: number;
+}
+
+export interface AyahBookmark {
+  key: string;
+  surah: number;
+  ayah: number;
+  page: number;
+  x: number;
+  y: number;
+  createdAt: number;
+}
+
 interface AppState {
   onboarded: boolean;
   setOnboarded: (v: boolean) => void;
