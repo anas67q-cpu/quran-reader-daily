@@ -83,7 +83,7 @@ function Reader() {
     ro.observe(el);
     setBox({ w: el.clientWidth, h: el.clientHeight });
     return () => ro.disconnect();
-  }, [hydrated]);
+  }, [hydrated, viewPage]);
 
   useEffect(() => {
     if (!viewPage) return;
