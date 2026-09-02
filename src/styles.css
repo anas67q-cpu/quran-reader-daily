@@ -141,3 +141,13 @@
 @utility animate-slide-in-prev {
   animation: slideInFromRight 0.28s cubic-bezier(0.32, 0.72, 0, 1) both;
 }
+
+/* Ayah highlight palette for the interactive Mushaf layer.
+   Tuned to sit over the warm parchment page without hiding the script. */
+:root {
+  --hl-gold: 200 160 60;
+  --hl-green: 60 160 110;
+  --hl-blue: 70 130 200;
+  --hl-rose: 205 85 110;
+  --hl-violet: 140 110 200;
+}

@@ -12,6 +12,28 @@ export interface ReminderRange {
   endHour: number;
 }
 
+export type HighlightColor = "gold" | "green" | "blue" | "rose" | "violet";
+
+export interface AyahHighlight {
+  key: string; // "surah:ayah"
+  surah: number;
+  ayah: number;
+  page: number;
+  color: HighlightColor;
+  x: number; // exact marker coordinate in Mushaf page units
+  y: number;
+}
+
+export interface AyahBookmark {
+  key: string;
+  surah: number;
+  ayah: number;
+  page: number;
+  x: number;
+  y: number;
+  createdAt: number;
+}
+
 interface AppState {
   onboarded: boolean;
   setOnboarded: (v: boolean) => void;
@@ -104,6 +126,24 @@ export const useApp = create<AppState>()(
 
       favoriteVerseIdx: null,
       setFavoriteVerse: (idx) => set({ favoriteVerseIdx: idx }),
+
+      highlights: {},
+      setHighlight: (h) => set((s) => ({ highlights: { ...s.highlights, [h.key]: h } })),
+      removeHighlight: (key) =>
+        set((s) => {
+          const next = { ...s.highlights };
+          delete next[key];
+          return { highlights: next };
+        }),
+
+      bookmarks: [],
+      toggleBookmark: (b) =>
+        set((s) => ({
+          bookmarks: s.bookmarks.some((x) => x.key === b.key)
+            ? s.bookmarks.filter((x) => x.key !== b.key)
+            : [b, ...s.bookmarks],
+        })),
+
 
       commitReading: (endPage) => {
         const s = get();

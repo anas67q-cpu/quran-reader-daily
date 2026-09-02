@@ -1,8 +1,25 @@
 import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState, useCallback } from "react";
-import { X, Check, Loader2, ListOrdered, BookMarked } from "lucide-react";
-import { useApp } from "@/lib/store";
-import { getPageDataUrl, prefetchPages } from "@/lib/page-cache";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import {
+  X,
+  Check,
+  Loader2,
+  ListOrdered,
+  BookMarked,
+  Bookmark,
+  Copy,
+  Eraser,
+} from "lucide-react";
+import { useApp, type HighlightColor } from "@/lib/store";
+import { getPageDataUrl, getPageSvgText, prefetchPages } from "@/lib/page-cache";
+import {
+  buildPageLayout,
+  containBox,
+  hitTest,
+  type AyahRegion,
+  type PageLayout,
+} from "@/lib/ayah-geometry";
+import { fetchAyah, type AyahData } from "@/lib/quran-api";
 import {
   surahForPage,
   juzForPage,
@@ -18,7 +35,19 @@ export const Route = createFileRoute("/read")({
   component: Reader,
 });
 
-type Sheet = null | "finish" | "jump" | "khatm" | "dua";
+type Sheet = null | "finish" | "jump" | "khatm" | "dua" | "ayah";
+
+const HL_COLORS: { id: HighlightColor; label: string; rgb: string }[] = [
+  { id: "gold", label: "ذهبي", rgb: "var(--hl-gold)" },
+  { id: "green", label: "أخضر", rgb: "var(--hl-green)" },
+  { id: "blue", label: "أزرق", rgb: "var(--hl-blue)" },
+  { id: "rose", label: "وردي", rgb: "var(--hl-rose)" },
+  { id: "violet", label: "بنفسجي", rgb: "var(--hl-violet)" },
+];
+
+function colorVar(c: HighlightColor) {
+  return HL_COLORS.find((h) => h.id === c)?.rgb ?? "var(--hl-gold)";
+}
 
 function Reader() {
   const s = useApp();
@@ -28,28 +57,63 @@ function Reader() {
 
   const [viewPage, setViewPage] = useState<number | null>(null);
   const [src, setSrc] = useState<string | null>(null);
+  const [layout, setLayout] = useState<PageLayout | null>(null);
   const [loading, setLoading] = useState(true);
   const [readingMode, setReadingMode] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [slideDir, setSlideDir] = useState<"next" | "prev" | null>(null);
+
+  const [selected, setSelected] = useState<AyahRegion | null>(null);
+  const [ayahData, setAyahData] = useState<AyahData | null>(null);
+  const [ayahLoading, setAyahLoading] = useState(false);
+
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState({ w: 0, h: 0 });
 
   useEffect(() => {
     if (hydrated && viewPage == null) setViewPage(s.currentPage);
   }, [hydrated, s.currentPage, viewPage]);
 
   useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      setBox({ w: el.clientWidth, h: el.clientHeight });
+    });
+    ro.observe(el);
+    setBox({ w: el.clientWidth, h: el.clientHeight });
+    return () => ro.disconnect();
+  }, [hydrated, viewPage]);
+
+  useEffect(() => {
     if (!viewPage) return;
     let cancelled = false;
     setLoading(true);
     setSrc(null);
-    getPageDataUrl(viewPage)
-      .then((url) => { if (!cancelled) { setSrc(url); setLoading(false); } })
+    setLayout(null);
+    getPageSvgText(viewPage)
+      .then((text) => {
+        if (cancelled) return;
+        setLayout(buildPageLayout(viewPage, text));
+        return getPageDataUrl(viewPage);
+      })
+      .then((url) => {
+        if (!cancelled && url) {
+          setSrc(url);
+          setLoading(false);
+        }
+      })
       .catch(() => { if (!cancelled) setLoading(false); });
     void prefetchPages(
       [viewPage + 1, viewPage + 2, viewPage - 1].filter((p) => p >= 1 && p <= TOTAL_PAGES),
     );
     return () => { cancelled = true; };
   }, [viewPage]);
+
+  const geom = useMemo(() => {
+    if (!layout || !box.w || !box.h) return null;
+    return containBox(box.w, box.h, layout.width, layout.height);
+  }, [layout, box]);
 
   const goNext = useCallback(() => {
     setViewPage((p) => {
@@ -68,18 +132,65 @@ function Reader() {
     });
   }, []);
 
-  // Pointer gesture handling — distinguishes tap from horizontal swipe.
+  const openAyah = useCallback((region: AyahRegion) => {
+    setSelected(region);
+    setSheet("ayah");
+    setAyahData(null);
+    setAyahLoading(true);
+    fetchAyah(region.key)
+      .then((d) => setAyahData(d))
+      .finally(() => setAyahLoading(false));
+  }, []);
+
+  // Pointer gesture handling — tap, horizontal swipe, and long-press on an ayah.
   const gesture = useRef<{ x: number; y: number; t: number; moved: boolean } | null>(null);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holdFired = useRef(false);
+
+  const clearHold = () => {
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+    holdTimer.current = null;
+  };
+
+  const regionAtClient = (clientX: number, clientY: number): AyahRegion | null => {
+    const el = stageRef.current;
+    if (!el || !layout || !geom) return null;
+    const r = el.getBoundingClientRect();
+    const sx = (clientX - r.left - geom.left) / geom.scale;
+    const sy = (clientY - r.top - geom.top) / geom.scale;
+    return hitTest(layout, sx, sy);
+  };
+
   const onPointerDown = (e: React.PointerEvent) => {
     gesture.current = { x: e.clientX, y: e.clientY, t: Date.now(), moved: false };
+    holdFired.current = false;
+    clearHold();
+    const cx = e.clientX;
+    const cy = e.clientY;
+    holdTimer.current = setTimeout(() => {
+      if (!gesture.current || gesture.current.moved) return;
+      const region = regionAtClient(cx, cy);
+      if (!region) return;
+      holdFired.current = true;
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        navigator.vibrate?.(12);
+      }
+      openAyah(region);
+    }, 480);
   };
+
   const onPointerMove = (e: React.PointerEvent) => {
     if (!gesture.current) return;
     const dx = Math.abs(e.clientX - gesture.current.x);
     const dy = Math.abs(e.clientY - gesture.current.y);
-    if (dx > 8 || dy > 8) gesture.current.moved = true;
+    if (dx > 8 || dy > 8) {
+      gesture.current.moved = true;
+      clearHold();
+    }
   };
+
   const onPointerUp = (e: React.PointerEvent) => {
+    clearHold();
     if (!gesture.current) return;
     const dx = e.clientX - gesture.current.x;
     const dy = e.clientY - gesture.current.y;
@@ -87,6 +198,11 @@ function Reader() {
     const absX = Math.abs(dx);
     const absY = Math.abs(dy);
     gesture.current = null;
+
+    if (holdFired.current) {
+      holdFired.current = false;
+      return;
+    }
 
     // Horizontal swipe wins over tap.
     if (absX > 45 && absX > absY * 1.3) {
@@ -123,6 +239,12 @@ function Reader() {
     setReadingMode(false);
   };
 
+  const pageHighlights =
+    layout?.regions.filter((r) => s.highlights[r.key]) ?? [];
+  const pageBookmarks = layout?.regions.filter((r) =>
+    s.bookmarks.some((b) => b.key === r.key),
+  ) ?? [];
+
   return (
     <div dir="rtl" className="fixed inset-0 flex flex-col bg-background text-foreground overflow-hidden">
       {/* Header — hidden in reading mode */}
@@ -156,13 +278,15 @@ function Reader() {
         </header>
       )}
 
-      {/* Full-screen page — swipe & tap zone */}
+      {/* Full-screen page — swipe, tap & long-press zone */}
       <div
+        ref={stageRef}
         className="absolute inset-0 flex items-center justify-center touch-pan-y select-none"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={() => (gesture.current = null)}
+        onPointerCancel={() => { clearHold(); gesture.current = null; }}
+        onContextMenu={(e) => e.preventDefault()}
       >
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
@@ -186,6 +310,57 @@ function Reader() {
               draggable={false}
               onAnimationEnd={() => setSlideDir(null)}
             />
+          </div>
+        )}
+
+        {/* Interactive layer — highlights, bookmarks, selection */}
+        {geom && layout && !slideDir && (
+          <div className="pointer-events-none absolute inset-0">
+            {pageHighlights.map((r) => {
+              const c = colorVar(s.highlights[r.key].color);
+              return r.rects.map((b, i) => (
+                <span
+                  key={`${r.key}-${i}`}
+                  className="absolute rounded-[3px]"
+                  style={{
+                    left: geom.left + b.x * geom.scale,
+                    top: geom.top + b.y * geom.scale,
+                    width: b.w * geom.scale,
+                    height: b.h * geom.scale,
+                    backgroundColor: `rgb(${c} / 0.26)`,
+                    boxShadow: `inset 0 -1.5px 0 rgb(${c} / 0.5)`,
+                  }}
+                />
+              ));
+            })}
+
+            {selected && sheet === "ayah" && selected.page === viewPage &&
+              selected.rects.map((b, i) => (
+                <span
+                  key={`sel-${i}`}
+                  className="absolute rounded-[3px] ring-1 ring-[rgb(163_145_113)]"
+                  style={{
+                    left: geom.left + b.x * geom.scale,
+                    top: geom.top + b.y * geom.scale,
+                    width: b.w * geom.scale,
+                    height: b.h * geom.scale,
+                    backgroundColor: "rgb(163 145 113 / 0.22)",
+                  }}
+                />
+              ))}
+
+            {pageBookmarks.map((r) => (
+              <span
+                key={`bm-${r.key}`}
+                className="absolute flex size-3.5 items-center justify-center rounded-full bg-brass shadow"
+                style={{
+                  left: geom.left + (r.marker.x - 1) * geom.scale,
+                  top: geom.top + (r.marker.y - 12) * geom.scale,
+                }}
+              >
+                <Bookmark className="size-2 text-background" />
+              </span>
+            ))}
           </div>
         )}
       </div>
@@ -212,6 +387,17 @@ function Reader() {
               نعم، انتهيت
             </button>
           </div>
+        </SheetShell>
+      )}
+
+      {sheet === "ayah" && selected && (
+        <SheetShell onClose={() => { setSheet(null); setSelected(null); }} tall>
+          <AyahPanel
+            region={selected}
+            data={ayahData}
+            loading={ayahLoading}
+            onClose={() => { setSheet(null); setSelected(null); }}
+          />
         </SheetShell>
       )}
 
@@ -272,6 +458,143 @@ function Reader() {
           </button>
         </SheetShell>
       )}
+    </div>
+  );
+}
+
+function AyahPanel({
+  region,
+  data,
+  loading,
+  onClose,
+}: {
+  region: AyahRegion;
+  data: AyahData | null;
+  loading: boolean;
+  onClose: () => void;
+}) {
+  const s = useApp();
+  const highlight = s.highlights[region.key];
+  const bookmarked = s.bookmarks.some((b) => b.key === region.key);
+  const [copied, setCopied] = useState(false);
+
+  const meta = {
+    key: region.key,
+    surah: region.surah,
+    ayah: region.ayah,
+    page: region.page,
+    x: region.marker.x,
+    y: region.marker.y,
+  };
+
+  const applyColor = (color: HighlightColor) => {
+    if (highlight?.color === color) s.removeHighlight(region.key);
+    else s.setHighlight({ ...meta, color });
+  };
+
+  const copy = async () => {
+    if (!data?.text) return;
+    try {
+      await navigator.clipboard.writeText(
+        `${data.text}\n\n[سورة ${SURAH_NAMES_AR[region.surah - 1]} — الآية ${toArabicDigits(region.ayah)}]`,
+      );
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      /* clipboard unavailable */
+    }
+  };
+
+  return (
+    <div className="flex max-h-[78vh] flex-col">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold">
+            سورة {SURAH_NAMES_AR[region.surah - 1]} • الآية {toArabicDigits(region.ayah)}
+          </h3>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            السورة {toArabicDigits(region.surah)} • صفحة {toArabicDigits(region.page)} • الجزء{" "}
+            {toArabicDigits(juzForPage(region.page))} • الموضع {region.marker.x.toFixed(1)}،{" "}
+            {region.marker.y.toFixed(1)}
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          aria-label="إغلاق"
+          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
+
+      <div className="mt-4 flex items-center gap-2">
+        {HL_COLORS.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => applyColor(c.id)}
+            aria-label={`تظليل ${c.label}`}
+            className={`size-8 rounded-full transition-transform ${
+              highlight?.color === c.id ? "scale-110 ring-2 ring-brass ring-offset-2 ring-offset-card" : ""
+            }`}
+            style={{ backgroundColor: `rgb(${c.rgb} / 0.85)` }}
+          />
+        ))}
+        <button
+          onClick={() => s.removeHighlight(region.key)}
+          aria-label="إزالة التظليل"
+          disabled={!highlight}
+          className="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground disabled:opacity-40"
+        >
+          <Eraser className="size-4" />
+        </button>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button
+          onClick={() => s.toggleBookmark({ ...meta, createdAt: Date.now() })}
+          className={`inline-flex items-center justify-center gap-1.5 rounded-2xl py-2.5 text-sm font-medium ring-1 ${
+            bookmarked
+              ? "bg-brass/15 text-brass ring-brass/30"
+              : "bg-card text-foreground ring-border"
+          }`}
+        >
+          <Bookmark className={`size-4 ${bookmarked ? "fill-current" : ""}`} />
+          {bookmarked ? "محفوظة" : "حفظ علامة"}
+        </button>
+        <button
+          onClick={copy}
+          className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-card py-2.5 text-sm font-medium ring-1 ring-border"
+        >
+          <Copy className="size-4" />
+          {copied ? "تم النسخ" : "نسخ الآية"}
+        </button>
+      </div>
+
+      <div className="mt-4 min-h-0 flex-1 overflow-y-auto pl-1">
+        {loading && !data && (
+          <div className="flex items-center justify-center py-8 text-muted-foreground">
+            <Loader2 className="size-5 animate-spin" />
+          </div>
+        )}
+        {data?.text && (
+          <p className="font-quran text-2xl leading-[2.1] text-foreground text-center">
+            {data.text}
+          </p>
+        )}
+        {data && !data.text && (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            تعذّر جلب نص الآية الآن.
+          </p>
+        )}
+        {data?.tafsir && (
+          <div className="mt-5 rounded-2xl bg-muted/50 p-4">
+            <h4 className="mb-2 text-xs font-semibold text-brass">التفسير الميسر</h4>
+            <p className="font-quran-body text-[15px] leading-8 text-foreground/90">
+              {data.tafsir}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
