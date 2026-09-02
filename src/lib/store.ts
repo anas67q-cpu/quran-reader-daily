@@ -127,6 +127,24 @@ export const useApp = create<AppState>()(
       favoriteVerseIdx: null,
       setFavoriteVerse: (idx) => set({ favoriteVerseIdx: idx }),
 
+      highlights: {},
+      setHighlight: (h) => set((s) => ({ highlights: { ...s.highlights, [h.key]: h } })),
+      removeHighlight: (key) =>
+        set((s) => {
+          const next = { ...s.highlights };
+          delete next[key];
+          return { highlights: next };
+        }),
+
+      bookmarks: [],
+      toggleBookmark: (b) =>
+        set((s) => ({
+          bookmarks: s.bookmarks.some((x) => x.key === b.key)
+            ? s.bookmarks.filter((x) => x.key !== b.key)
+            : [b, ...s.bookmarks],
+        })),
+
+
       commitReading: (endPage) => {
         const s = get();
         const t = today();
