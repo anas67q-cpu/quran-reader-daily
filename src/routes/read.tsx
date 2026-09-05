@@ -514,8 +514,8 @@ function AyahPanel({
           </h3>
           <p className="mt-1 text-[11px] text-muted-foreground">
             السورة {toArabicDigits(region.surah)} • صفحة {toArabicDigits(region.page)} • الجزء{" "}
-            {toArabicDigits(juzForPage(region.page))} • الموضع {region.marker.x.toFixed(1)}،{" "}
-            {region.marker.y.toFixed(1)}
+            {toArabicDigits(juzForPage(region.page))} • الموضع {toArabicDigits(region.marker.x.toFixed(1))}،{" "}
+            {toArabicDigits(region.marker.y.toFixed(1))}
           </p>
         </div>
         <button
