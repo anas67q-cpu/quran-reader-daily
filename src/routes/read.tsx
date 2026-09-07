@@ -350,18 +350,34 @@ function Reader() {
                 />
               ))}
 
-            {pageBookmarks.map((r) => (
-              <span
-                key={`bm-${r.key}`}
-                className="absolute flex size-3.5 items-center justify-center rounded-full bg-brass shadow"
-                style={{
-                  left: geom.left + (r.marker.x - 1) * geom.scale,
-                  top: geom.top + (r.marker.y - 12) * geom.scale,
-                }}
-              >
-                <Bookmark className="size-2 text-background" />
-              </span>
-            ))}
+            {/* التوقف هنا — light-brown highlight over the exact ayah + star on its number */}
+            {stopRegion && (
+              <>
+                {stopRegion.rects.map((b, i) => (
+                  <span
+                    key={`stop-${i}`}
+                    className="absolute rounded-[3px]"
+                    style={{
+                      left: geom.left + b.x * geom.scale,
+                      top: geom.top + b.y * geom.scale,
+                      width: b.w * geom.scale,
+                      height: b.h * geom.scale,
+                      backgroundColor: "rgb(var(--hl-brown) / 0.26)",
+                      boxShadow: "inset 0 -1.5px 0 rgb(var(--hl-brown) / 0.5)",
+                    }}
+                  />
+                ))}
+                <span
+                  className="absolute flex size-3.5 items-center justify-center rounded-full bg-brass shadow"
+                  style={{
+                    left: geom.left + (stopRegion.marker.x - 1) * geom.scale,
+                    top: geom.top + (stopRegion.marker.y - 12) * geom.scale,
+                  }}
+                >
+                  <Star className="size-2 fill-current text-background" />
+                </span>
+              </>
+            )}
           </div>
         )}
       </div>
