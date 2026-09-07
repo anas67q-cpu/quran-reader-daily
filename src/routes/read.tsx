@@ -583,15 +583,17 @@ function AyahPanel({
 
       <div className="mt-4 grid grid-cols-2 gap-2">
         <button
-          onClick={() => s.toggleBookmark({ ...meta, createdAt: Date.now() })}
+          onClick={() =>
+            s.setStopPoint(isStop ? null : { ...meta, createdAt: Date.now() })
+          }
           className={`inline-flex items-center justify-center gap-1.5 rounded-2xl py-2.5 text-sm font-medium ring-1 ${
-            bookmarked
+            isStop
               ? "bg-brass/15 text-brass ring-brass/30"
               : "bg-card text-foreground ring-border"
           }`}
         >
-          <Bookmark className={`size-4 ${bookmarked ? "fill-current" : ""}`} />
-          {bookmarked ? "محفوظة" : "حفظ علامة"}
+          <Star className={`size-4 ${isStop ? "fill-current" : ""}`} />
+          {isStop ? "توقفك هنا" : "التوقف هنا"}
         </button>
         <button
           onClick={copy}
