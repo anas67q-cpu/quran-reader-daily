@@ -279,6 +279,21 @@ function Reader() {
         </header>
       )}
 
+      {/* موضع التوقف المحفوظ */}
+      {!readingMode && s.stopPoint && (
+        <div className="absolute top-[52px] inset-x-0 z-20 flex justify-center px-3">
+          <button
+            onClick={() => setViewPage(s.stopPoint!.page)}
+            className="inline-flex items-center gap-1.5 rounded-full bg-card/90 px-3 py-1 text-[11px] text-brass ring-1 ring-brass/25 backdrop-blur-sm"
+          >
+            <Star className="size-3 fill-current" />
+            توقفك عند الصفحة {toArabicDigits(s.stopPoint.page)}، الآية{" "}
+            {toArabicDigits(s.stopPoint.ayah)}
+          </button>
+        </div>
+      )}
+
+
       {/* Full-screen page — swipe, tap & long-press zone */}
       <div
         ref={stageRef}
