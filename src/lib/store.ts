@@ -24,7 +24,8 @@ export interface AyahHighlight {
   y: number;
 }
 
-export interface AyahBookmark {
+/** Single "التوقف هنا" reading position. */
+export interface StopPoint {
   key: string;
   surah: number;
   ayah: number;
