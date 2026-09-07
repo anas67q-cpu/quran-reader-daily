@@ -314,7 +314,7 @@ function Reader() {
           </div>
         )}
 
-        {/* Interactive layer — highlights, bookmarks, selection */}
+        {/* Interactive layer — highlights, stopping point, selection */}
         {geom && layout && !slideDir && (
           <div className="pointer-events-none absolute inset-0">
             {pageHighlights.map((r) => {
