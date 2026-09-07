@@ -6,7 +6,7 @@ import {
   Loader2,
   ListOrdered,
   BookMarked,
-  Bookmark,
+  Star,
   Copy,
   Eraser,
 } from "lucide-react";
