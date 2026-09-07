@@ -70,8 +70,9 @@ interface AppState {
   setHighlight: (h: AyahHighlight) => void;
   removeHighlight: (key: string) => void;
 
-  bookmarks: AyahBookmark[];
-  toggleBookmark: (b: AyahBookmark) => void;
+  // Single stopping point ("التوقف هنا").
+  stopPoint: StopPoint | null;
+  setStopPoint: (b: StopPoint | null) => void;
 
   // Commit reading progress up to (and including) endPage.
   // Called ONLY when the user presses "انتهيت".
