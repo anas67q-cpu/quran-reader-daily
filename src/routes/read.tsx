@@ -71,8 +71,9 @@ function Reader() {
   const [box, setBox] = useState({ w: 0, h: 0 });
 
   useEffect(() => {
-    if (hydrated && viewPage == null) setViewPage(s.currentPage);
-  }, [hydrated, s.currentPage, viewPage]);
+    // Open on the saved stopping point when there is one.
+    if (hydrated && viewPage == null) setViewPage(s.stopPoint?.page ?? s.currentPage);
+  }, [hydrated, s.currentPage, s.stopPoint, viewPage]);
 
   useEffect(() => {
     const el = stageRef.current;
