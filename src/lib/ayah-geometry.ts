@@ -287,6 +287,23 @@ export function buildPageLayout(page: number, svgText: string): PageLayout {
   });
   const textRight = Math.max(...lines.map((L) => L.xmax));
 
+  // The SVG lists markers in file order, which is not the reading order.
+  // Sort them top→bottom, right→left so marker[i] matches the i-th span.
+  const lineOf = (y: number) => {
+    let bi = 0, bd = Infinity;
+    lines.forEach((L, i) => {
+      const d = Math.abs(L.center - y);
+      if (d < bd) { bd = d; bi = i; }
+    });
+    return bi;
+  };
+  markers.sort((a, b) => {
+    const la = lineOf(a.y), lb = lineOf(b.y);
+    return la !== lb ? la - lb : b.x - a.x;
+  });
+
+
+
   const items: Item[] = [];
   lines.forEach((L, li) => {
     for (const b of L.boxes) items.push({ line: li, x: (b.x0 + b.x1) / 2, box: b, marker: null });
