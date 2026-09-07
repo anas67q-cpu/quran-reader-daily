@@ -242,9 +242,9 @@ function Reader() {
 
   const pageHighlights =
     layout?.regions.filter((r) => s.highlights[r.key]) ?? [];
-  const pageBookmarks = layout?.regions.filter((r) =>
-    s.bookmarks.some((b) => b.key === r.key),
-  ) ?? [];
+  // Single stopping point region on this page (star + light-brown highlight).
+  const stopRegion =
+    layout?.regions.find((r) => s.stopPoint && r.key === s.stopPoint.key) ?? null;
 
   return (
     <div dir="rtl" className="fixed inset-0 flex flex-col bg-background text-foreground overflow-hidden">
