@@ -138,13 +138,8 @@ export const useApp = create<AppState>()(
           return { highlights: next };
         }),
 
-      bookmarks: [],
-      toggleBookmark: (b) =>
-        set((s) => ({
-          bookmarks: s.bookmarks.some((x) => x.key === b.key)
-            ? s.bookmarks.filter((x) => x.key !== b.key)
-            : [b, ...s.bookmarks],
-        })),
+      stopPoint: null,
+      setStopPoint: (b) => set({ stopPoint: b }),
 
 
       commitReading: (endPage) => {
