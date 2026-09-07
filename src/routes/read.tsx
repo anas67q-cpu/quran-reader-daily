@@ -507,7 +507,7 @@ function AyahPanel({
 }) {
   const s = useApp();
   const highlight = s.highlights[region.key];
-  const bookmarked = s.bookmarks.some((b) => b.key === region.key);
+  const isStop = s.stopPoint?.key === region.key;
   const [copied, setCopied] = useState(false);
 
   const meta = {
