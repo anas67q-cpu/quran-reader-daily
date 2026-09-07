@@ -24,7 +24,8 @@ export interface AyahHighlight {
   y: number;
 }
 
-export interface AyahBookmark {
+/** Single "التوقف هنا" reading position. */
+export interface StopPoint {
   key: string;
   surah: number;
   ayah: number;
@@ -69,8 +70,9 @@ interface AppState {
   setHighlight: (h: AyahHighlight) => void;
   removeHighlight: (key: string) => void;
 
-  bookmarks: AyahBookmark[];
-  toggleBookmark: (b: AyahBookmark) => void;
+  // Single stopping point ("التوقف هنا").
+  stopPoint: StopPoint | null;
+  setStopPoint: (b: StopPoint | null) => void;
 
   // Commit reading progress up to (and including) endPage.
   // Called ONLY when the user presses "انتهيت".
@@ -136,13 +138,8 @@ export const useApp = create<AppState>()(
           return { highlights: next };
         }),
 
-      bookmarks: [],
-      toggleBookmark: (b) =>
-        set((s) => ({
-          bookmarks: s.bookmarks.some((x) => x.key === b.key)
-            ? s.bookmarks.filter((x) => x.key !== b.key)
-            : [b, ...s.bookmarks],
-        })),
+      stopPoint: null,
+      setStopPoint: (b) => set({ stopPoint: b }),
 
 
       commitReading: (endPage) => {

@@ -6,7 +6,7 @@ import {
   Loader2,
   ListOrdered,
   BookMarked,
-  Bookmark,
+  Star,
   Copy,
   Eraser,
 } from "lucide-react";
@@ -71,8 +71,9 @@ function Reader() {
   const [box, setBox] = useState({ w: 0, h: 0 });
 
   useEffect(() => {
-    if (hydrated && viewPage == null) setViewPage(s.currentPage);
-  }, [hydrated, s.currentPage, viewPage]);
+    // Open on the saved stopping point when there is one.
+    if (hydrated && viewPage == null) setViewPage(s.stopPoint?.page ?? s.currentPage);
+  }, [hydrated, s.currentPage, s.stopPoint, viewPage]);
 
   useEffect(() => {
     const el = stageRef.current;
@@ -241,9 +242,9 @@ function Reader() {
 
   const pageHighlights =
     layout?.regions.filter((r) => s.highlights[r.key]) ?? [];
-  const pageBookmarks = layout?.regions.filter((r) =>
-    s.bookmarks.some((b) => b.key === r.key),
-  ) ?? [];
+  // Single stopping point region on this page (star + light-brown highlight).
+  const stopRegion =
+    layout?.regions.find((r) => s.stopPoint && r.key === s.stopPoint.key) ?? null;
 
   return (
     <div dir="rtl" className="fixed inset-0 flex flex-col bg-background text-foreground overflow-hidden">
@@ -277,6 +278,21 @@ function Reader() {
           </button>
         </header>
       )}
+
+      {/* موضع التوقف المحفوظ */}
+      {!readingMode && s.stopPoint && (
+        <div className="absolute top-[52px] inset-x-0 z-20 flex justify-center px-3">
+          <button
+            onClick={() => setViewPage(s.stopPoint!.page)}
+            className="inline-flex items-center gap-1.5 rounded-full bg-card/90 px-3 py-1 text-[11px] text-brass ring-1 ring-brass/25 backdrop-blur-sm"
+          >
+            <Star className="size-3 fill-current" />
+            توقفك عند الصفحة {toArabicDigits(s.stopPoint.page)}، الآية{" "}
+            {toArabicDigits(s.stopPoint.ayah)}
+          </button>
+        </div>
+      )}
+
 
       {/* Full-screen page — swipe, tap & long-press zone */}
       <div
@@ -313,7 +329,7 @@ function Reader() {
           </div>
         )}
 
-        {/* Interactive layer — highlights, bookmarks, selection */}
+        {/* Interactive layer — highlights, stopping point, selection */}
         {geom && layout && !slideDir && (
           <div className="pointer-events-none absolute inset-0">
             {pageHighlights.map((r) => {
@@ -349,18 +365,34 @@ function Reader() {
                 />
               ))}
 
-            {pageBookmarks.map((r) => (
-              <span
-                key={`bm-${r.key}`}
-                className="absolute flex size-3.5 items-center justify-center rounded-full bg-brass shadow"
-                style={{
-                  left: geom.left + (r.marker.x - 1) * geom.scale,
-                  top: geom.top + (r.marker.y - 12) * geom.scale,
-                }}
-              >
-                <Bookmark className="size-2 text-background" />
-              </span>
-            ))}
+            {/* التوقف هنا — light-brown highlight over the exact ayah + star on its number */}
+            {stopRegion && (
+              <>
+                {stopRegion.rects.map((b, i) => (
+                  <span
+                    key={`stop-${i}`}
+                    className="absolute rounded-[3px]"
+                    style={{
+                      left: geom.left + b.x * geom.scale,
+                      top: geom.top + b.y * geom.scale,
+                      width: b.w * geom.scale,
+                      height: b.h * geom.scale,
+                      backgroundColor: "rgb(var(--hl-brown) / 0.26)",
+                      boxShadow: "inset 0 -1.5px 0 rgb(var(--hl-brown) / 0.5)",
+                    }}
+                  />
+                ))}
+                <span
+                  className="absolute flex size-3.5 items-center justify-center rounded-full bg-brass shadow"
+                  style={{
+                    left: geom.left + (stopRegion.marker.x - 1) * geom.scale,
+                    top: geom.top + (stopRegion.marker.y - 12) * geom.scale,
+                  }}
+                >
+                  <Star className="size-2 fill-current text-background" />
+                </span>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -475,7 +507,7 @@ function AyahPanel({
 }) {
   const s = useApp();
   const highlight = s.highlights[region.key];
-  const bookmarked = s.bookmarks.some((b) => b.key === region.key);
+  const isStop = s.stopPoint?.key === region.key;
   const [copied, setCopied] = useState(false);
 
   const meta = {
@@ -551,15 +583,17 @@ function AyahPanel({
 
       <div className="mt-4 grid grid-cols-2 gap-2">
         <button
-          onClick={() => s.toggleBookmark({ ...meta, createdAt: Date.now() })}
+          onClick={() =>
+            s.setStopPoint(isStop ? null : { ...meta, createdAt: Date.now() })
+          }
           className={`inline-flex items-center justify-center gap-1.5 rounded-2xl py-2.5 text-sm font-medium ring-1 ${
-            bookmarked
+            isStop
               ? "bg-brass/15 text-brass ring-brass/30"
               : "bg-card text-foreground ring-border"
           }`}
         >
-          <Bookmark className={`size-4 ${bookmarked ? "fill-current" : ""}`} />
-          {bookmarked ? "محفوظة" : "حفظ علامة"}
+          <Star className={`size-4 ${isStop ? "fill-current" : ""}`} />
+          {isStop ? "توقفك هنا" : "التوقف هنا"}
         </button>
         <button
           onClick={copy}
