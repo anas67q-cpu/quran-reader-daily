@@ -5,7 +5,16 @@ import { useApp } from "@/lib/store";
 import { toArabicDigits } from "@/lib/quran-meta";
 
 export const Route = createFileRoute("/onboarding")({
-  head: () => ({ meta: [{ title: "أهلًا بك — إقرأ" }] }),
+  head: () => ({
+    meta: [
+      { title: "أهلًا بك — إقرأ: كل يوم" },
+      { name: "description", content: "ابدأ رحلتك مع إقرأ: كل يوم، وحدد وردك اليومي لقراءة القرآن الكريم." },
+      { property: "og:title", content: "أهلًا بك — إقرأ: كل يوم" },
+      { property: "og:description", content: "ابدأ رحلتك مع إقرأ: كل يوم، وحدد وردك اليومي لقراءة القرآن الكريم." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Onboarding,
 });
 

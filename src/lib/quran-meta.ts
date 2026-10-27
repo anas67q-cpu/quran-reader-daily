@@ -5,6 +5,11 @@
 
 export const TOTAL_PAGES = 604;
 
+/** Physical side in the RTL Madinah Mushaf: Al-Fatihah faces right. */
+export function mushafPageSide(page: number): "right" | "left" {
+  return page % 2 === 1 ? "right" : "left";
+}
+
 export const SURAH_STARTS: number[] = [
   1, 2, 50, 77, 106, 128, 151, 177, 187, 208, 221, 235, 249, 255, 262, 267,
   282, 293, 305, 312, 322, 332, 342, 350, 359, 367, 377, 385, 396, 404, 411,

@@ -6,7 +6,16 @@ import { toArabicDigits } from "@/lib/quran-meta";
 import { cachedCount, clearCache } from "@/lib/page-cache";
 
 export const Route = createFileRoute("/settings")({
-  head: () => ({ meta: [{ title: "الإعدادات — إقرأ" }] }),
+  head: () => ({
+    meta: [
+      { title: "الإعدادات — إقرأ: كل يوم" },
+      { name: "description", content: "إعدادات إقرأ: كل يوم — خصّص وردك اليومي وتذكيرات القراءة." },
+      { property: "og:title", content: "الإعدادات — إقرأ: كل يوم" },
+      { property: "og:description", content: "إعدادات إقرأ: كل يوم — خصّص وردك اليومي وتذكيرات القراءة." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Settings,
 });
 

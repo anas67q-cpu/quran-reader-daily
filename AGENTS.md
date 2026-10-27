@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Keep Mushaf physical page effects as pointer-inert CSS decoration beneath the existing SVG on its full-screen parchment surface; derive physical side from page parity, not navigation direction, so jumps and restored positions remain correct without changing image or ayah geometry.
