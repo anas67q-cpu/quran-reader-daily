@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { animate, useMotionValue, useReducedMotion } from "motion/react";
 import {
   X,
   Check,
@@ -11,13 +12,13 @@ import {
   Eraser,
 } from "lucide-react";
 import { useApp, type HighlightColor } from "@/lib/store";
-import { getPageDataUrl, getPageSvgText, prefetchPages } from "@/lib/page-cache";
+import { useMushafPages, type MushafPageData } from "@/hooks/use-mushaf-pages";
+import { MushafPage, MushafTurningPage } from "@/components/mushaf-page";
+import { turnDirection, turnTarget, turnProgress, shouldCompleteTurn, type TurnDirection } from "@/lib/page-turn";
 import {
-  buildPageLayout,
   containBox,
   hitTest,
   type AyahRegion,
-  type PageLayout,
 } from "@/lib/ayah-geometry";
 import { fetchAyah, type AyahData } from "@/lib/quran-api";
 import {
@@ -27,7 +28,6 @@ import {
   TOTAL_PAGES,
   SURAH_STARTS,
   SURAH_NAMES_AR,
-  mushafPageSide,
 } from "@/lib/quran-meta";
 import { KHATM_DUA } from "@/lib/verses";
 
@@ -66,12 +66,19 @@ function Reader() {
   useEffect(() => setHydrated(true), []);
 
   const [viewPage, setViewPage] = useState<number | null>(null);
-  const [src, setSrc] = useState<string | null>(null);
-  const [layout, setLayout] = useState<PageLayout | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { pages, loadPage, failed } = useMushafPages(viewPage);
+  const activePage = viewPage == null ? undefined : pages[viewPage];
+  const layout = activePage?.layout ?? null;
+  const loading = !activePage && !failed;
   const [readingMode, setReadingMode] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
-  const [slideDir, setSlideDir] = useState<"next" | "prev" | null>(null);
+  type PageTurn = { direction: TurnDirection; target: number; settling: boolean };
+  const [turn, setTurn] = useState<PageTurn | null>(null);
+  const turnRef = useRef<PageTurn | null>(null);
+  const turnAmount = useMotionValue(0);
+  const reducedMotion = useReducedMotion();
+  const animation = useRef<ReturnType<typeof animate> | null>(null);
+  const turnSession = useRef(0);
 
   const [selected, setSelected] = useState<AyahRegion | null>(null);
   const [ayahData, setAyahData] = useState<AyahData | null>(null);
@@ -96,52 +103,10 @@ function Reader() {
     return () => ro.disconnect();
   }, [hydrated, viewPage]);
 
-  useEffect(() => {
-    if (!viewPage) return;
-    let cancelled = false;
-    setLoading(true);
-    setSrc(null);
-    setLayout(null);
-    getPageSvgText(viewPage)
-      .then((text) => {
-        if (cancelled) return;
-        setLayout(buildPageLayout(viewPage, text));
-        return getPageDataUrl(viewPage);
-      })
-      .then((url) => {
-        if (!cancelled && url) {
-          setSrc(url);
-          setLoading(false);
-        }
-      })
-      .catch(() => { if (!cancelled) setLoading(false); });
-    void prefetchPages(
-      [viewPage + 1, viewPage + 2, viewPage - 1].filter((p) => p >= 1 && p <= TOTAL_PAGES),
-    );
-    return () => { cancelled = true; };
-  }, [viewPage]);
-
   const geom = useMemo(() => {
     if (!layout || !box.w || !box.h) return null;
     return containBox(box.w, box.h, layout.width, layout.height);
   }, [layout, box]);
-
-  const goNext = useCallback(() => {
-    setViewPage((p) => {
-      if (p == null) return p;
-      if (p >= TOTAL_PAGES) return p;
-      setSlideDir("next");
-      return p + 1;
-    });
-  }, []);
-
-  const goPrev = useCallback(() => {
-    setViewPage((p) => {
-      if (p == null || p <= 1) return p;
-      setSlideDir("prev");
-      return p - 1;
-    });
-  }, []);
 
   const openAyah = useCallback((region: AyahRegion) => {
     setSelected(region);
@@ -154,13 +119,69 @@ function Reader() {
   }, []);
 
   // Pointer gesture handling — tap, horizontal swipe, and long-press on an ayah.
-  const gesture = useRef<{ x: number; y: number; t: number; moved: boolean } | null>(null);
+  const gesture = useRef<{
+    x: number; y: number; t: number; moved: boolean; horizontal: boolean;
+    pointer: number; lastX: number; lastT: number; velocity: number;
+  } | null>(null);
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const holdFired = useRef(false);
 
   const clearHold = () => {
     if (holdTimer.current) clearTimeout(holdTimer.current);
     holdTimer.current = null;
+  };
+
+  const clearTurn = useCallback(() => {
+    turnSession.current += 1;
+    animation.current?.stop();
+    animation.current = null;
+    turnRef.current = null;
+    setTurn(null);
+    turnAmount.set(0);
+    gesture.current = null;
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+    holdTimer.current = null;
+  }, [turnAmount]);
+
+  const goToPage = (number: number) => {
+    clearTurn();
+    setViewPage(number);
+  };
+
+  useEffect(() => () => {
+    turnSession.current += 1;
+    animation.current?.stop();
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+  }, []);
+
+  const settleTurn = async (complete: boolean) => {
+    const current = turnRef.current;
+    if (!current || current.settling) return;
+    const session = turnSession.current;
+    const settling = { ...current, settling: true };
+    turnRef.current = settling;
+    setTurn(settling);
+    if (complete) {
+      try {
+        // Await the actual decoded SVG; never commit to a blank or loading page.
+        await loadPage(current.target);
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      } catch {
+        if (session === turnSession.current) clearTurn();
+        return;
+      }
+    }
+    if (session !== turnSession.current) return;
+    const controls = animate(turnAmount, complete ? 1 : 0, {
+      type: "tween",
+      duration: reducedMotion ? 0 : Math.max(0.18, Math.abs((complete ? 1 : 0) - turnAmount.get()) * 0.38),
+      ease: [0.22, 0.68, 0.2, 1],
+    });
+    animation.current = controls;
+    await controls;
+    if (session !== turnSession.current) return;
+    if (complete) setViewPage(current.target);
+    clearTurn();
   };
 
   const regionAtClient = (clientX: number, clientY: number): AyahRegion | null => {
@@ -173,7 +194,11 @@ function Reader() {
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
-    gesture.current = { x: e.clientX, y: e.clientY, t: Date.now(), moved: false };
+    if (!activePage || sheet || turnRef.current || !e.isPrimary || e.button !== 0) return;
+    gesture.current = {
+      x: e.clientX, y: e.clientY, t: Date.now(), moved: false, horizontal: false,
+      pointer: e.pointerId, lastX: e.clientX, lastT: performance.now(), velocity: 0,
+    };
     holdFired.current = false;
     clearHold();
     const cx = e.clientX;
@@ -191,40 +216,71 @@ function Reader() {
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!gesture.current) return;
-    const dx = Math.abs(e.clientX - gesture.current.x);
-    const dy = Math.abs(e.clientY - gesture.current.y);
-    if (dx > 8 || dy > 8) {
-      gesture.current.moved = true;
+    const g = gesture.current;
+    if (!g || g.pointer !== e.pointerId || holdFired.current) return;
+    const dx = e.clientX - g.x;
+    const dy = e.clientY - g.y;
+    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+      g.moved = true;
       clearHold();
+    }
+    if (!g.horizontal && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+      const direction = turnDirection(dx);
+      const target = viewPage != null && direction ? turnTarget(viewPage, direction) : null;
+      if (direction && target != null) {
+        g.horizontal = true;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        const next = { direction, target, settling: false };
+        turnRef.current = next;
+        setTurn(next);
+        void loadPage(target).catch(() => {});
+      }
+    }
+    const current = turnRef.current;
+    if (g.horizontal && current && !current.settling && geom && layout) {
+      const now = performance.now();
+      const dt = now - g.lastT;
+      if (dt > 0) g.velocity = (e.clientX - g.lastX) / dt;
+      g.lastX = e.clientX;
+      g.lastT = now;
+      turnAmount.set(turnProgress(dx, layout.width * geom.scale, current.direction));
     }
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
     clearHold();
-    if (!gesture.current) return;
+    if (!gesture.current || gesture.current.pointer !== e.pointerId) return;
+    const g = gesture.current;
     const dx = e.clientX - gesture.current.x;
     const dy = e.clientY - gesture.current.y;
     const dt = Date.now() - gesture.current.t;
     const absX = Math.abs(dx);
     const absY = Math.abs(dy);
     gesture.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
 
     if (holdFired.current) {
       holdFired.current = false;
       return;
     }
 
-    // Horizontal swipe wins over tap.
-    if (absX > 45 && absX > absY * 1.3) {
-      // RTL reading: swipe left→right (dx>0) advances forward; right→left goes back.
-      if (dx > 0) goNext(); else goPrev();
+    if (g.horizontal && turnRef.current) {
+      const velocity = performance.now() - g.lastT > 100 ? 0 :
+        g.velocity * (turnRef.current.direction === "next" ? -1 : 1);
+      void settleTurn(shouldCompleteTurn(turnAmount.get(), velocity));
       return;
     }
     // Tap (small movement, quick release) → toggle reading mode.
     if (absX < 10 && absY < 10 && dt < 400) {
       setReadingMode((r) => !r);
     }
+  };
+
+  const cancelGesture = () => {
+    clearHold();
+    gesture.current = null;
+    holdFired.current = false;
+    if (turnRef.current && !turnRef.current.settling) void settleTurn(false);
   };
 
   if (hydrated && !s.onboarded) return <Navigate to="/onboarding" />;
@@ -246,15 +302,14 @@ function Reader() {
   const startNextKhatma = () => {
     s.startNewKhatma();
     setSheet(null);
-    setViewPage(1);
+    goToPage(1);
     setReadingMode(false);
   };
 
-  const pageHighlights =
-    layout?.regions.filter((r) => s.highlights[r.key]) ?? [];
-  // Single stopping point region on this page (star + light-brown highlight).
-  const stopRegion =
-    layout?.regions.find((r) => s.stopPoint && r.key === s.stopPoint.key) ?? null;
+  const interactiveLayer = (page: MushafPageData) => (
+    <AyahOverlay page={page} box={box} selected={selected} showSelection={sheet === "ayah"} />
+  );
+  const revealedPage = turn ? pages[turn.target] : undefined;
 
   return (
     <div dir="rtl" className="fixed inset-0 flex flex-col bg-background text-foreground overflow-hidden">
@@ -293,7 +348,7 @@ function Reader() {
       {!readingMode && s.stopPoint && (
         <div className="absolute top-[52px] inset-x-0 z-20 flex justify-center px-3">
           <button
-            onClick={() => setViewPage(s.stopPoint!.page)}
+            onClick={() => { if (s.stopPoint) goToPage(s.stopPoint.page); }}
             className="inline-flex items-center gap-1.5 rounded-full bg-card/90 px-3 py-1 text-[11px] text-brass ring-1 ring-brass/25 backdrop-blur-sm"
           >
             <Star className="size-3 fill-current" />
@@ -307,11 +362,14 @@ function Reader() {
       {/* Full-screen page — swipe, tap & long-press zone */}
       <div
         ref={stageRef}
-        className="absolute inset-0 flex items-center justify-center touch-pan-y select-none"
+        className="mushaf-paper absolute inset-0 flex items-center justify-center touch-pan-y select-none overflow-hidden"
+        data-reader-page={viewPage}
+        data-turning={turn?.direction ?? "none"}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={() => { clearHold(); gesture.current = null; }}
+        onPointerCancel={cancelGesture}
+        onLostPointerCapture={() => { if (gesture.current) cancelGesture(); }}
         onContextMenu={(e) => e.preventDefault()}
       >
         {loading && (
@@ -319,95 +377,18 @@ function Reader() {
             <Loader2 className="size-6 animate-spin" />
           </div>
         )}
-        {src && (
-          <div
-            className="mushaf-paper relative flex h-full w-full items-center justify-center"
-            data-page-side={mushafPageSide(viewPage)}
-          >
-            <div className="mushaf-paper-depth" aria-hidden="true">
-              <span className="mushaf-paper-leaf" />
-              <span className="mushaf-paper-leaf mushaf-paper-leaf-middle" />
-              <span className="mushaf-paper-leaf mushaf-paper-leaf-front" />
+        {activePage && (turn && revealedPage ? (
+          <>
+            <div className="absolute inset-0" aria-hidden="true">
+              <MushafPage page={revealedPage} box={box}>{interactiveLayer(revealedPage)}</MushafPage>
             </div>
-            <img
-              key={viewPage}
-              src={src}
-              alt={`صفحة ${viewPage} — سورة ${surah.name}`}
-              className={`relative h-full w-full object-contain ${
-                slideDir === "next" ? "animate-slide-in-next" : slideDir === "prev" ? "animate-slide-in-prev" : ""
-              }`}
-              draggable={false}
-              onAnimationEnd={() => setSlideDir(null)}
-            />
-          </div>
-        )}
-
-        {/* Interactive layer — highlights, stopping point, selection */}
-        {geom && layout && !slideDir && (
-          <div className="pointer-events-none absolute inset-0">
-            {pageHighlights.map((r) => {
-              const c = colorVar(s.highlights[r.key].color);
-              return r.rects.map((b, i) => (
-                <span
-                  key={`${r.key}-${i}`}
-                  className="absolute rounded-[3px]"
-                  style={{
-                    left: geom.left + b.x * geom.scale,
-                    top: geom.top + b.y * geom.scale,
-                    width: b.w * geom.scale,
-                    height: b.h * geom.scale,
-                    backgroundColor: `rgb(${c} / 0.26)`,
-                    boxShadow: `inset 0 -1.5px 0 rgb(${c} / 0.5)`,
-                  }}
-                />
-              ));
-            })}
-
-            {selected && sheet === "ayah" && selected.page === viewPage &&
-              selected.rects.map((b, i) => (
-                <span
-                  key={`sel-${i}`}
-                  className="absolute rounded-[3px] ring-1 ring-[rgb(163_145_113)]"
-                  style={{
-                    left: geom.left + b.x * geom.scale,
-                    top: geom.top + b.y * geom.scale,
-                    width: b.w * geom.scale,
-                    height: b.h * geom.scale,
-                    backgroundColor: "rgb(163 145 113 / 0.22)",
-                  }}
-                />
-              ))}
-
-            {/* التوقف هنا — light-brown highlight over the exact ayah + star on its number */}
-            {stopRegion && (
-              <>
-                {stopRegion.rects.map((b, i) => (
-                  <span
-                    key={`stop-${i}`}
-                    className="absolute rounded-[3px]"
-                    style={{
-                      left: geom.left + b.x * geom.scale,
-                      top: geom.top + b.y * geom.scale,
-                      width: b.w * geom.scale,
-                      height: b.h * geom.scale,
-                      backgroundColor: "rgb(var(--hl-brown) / 0.26)",
-                      boxShadow: "inset 0 -1.5px 0 rgb(var(--hl-brown) / 0.5)",
-                    }}
-                  />
-                ))}
-                <span
-                  className="absolute flex size-3.5 items-center justify-center rounded-full bg-brass shadow"
-                  style={{
-                    left: geom.left + (stopRegion.marker.x - 1) * geom.scale,
-                    top: geom.top + (stopRegion.marker.y - 12) * geom.scale,
-                  }}
-                >
-                  <Star className="size-2 fill-current text-background" />
-                </span>
-              </>
-            )}
-          </div>
-        )}
+            <MushafTurningPage page={activePage} box={box} direction={turn.direction} progress={turnAmount}>
+              {interactiveLayer(activePage)}
+            </MushafTurningPage>
+          </>
+        ) : (
+          <MushafPage page={activePage} box={box}>{interactiveLayer(activePage)}</MushafPage>
+        ))}
       </div>
 
       {/* Sheets */}
@@ -451,8 +432,7 @@ function Reader() {
           <JumpPicker
             current={viewPage}
             onGo={(p) => {
-              setSlideDir(p > viewPage ? "next" : "prev");
-              setViewPage(p);
+              goToPage(p);
               setSheet(null);
             }}
           />
@@ -503,6 +483,56 @@ function Reader() {
           </button>
         </SheetShell>
       )}
+    </div>
+  );
+}
+
+/** Same exact SVG-coordinate layer, carried with each page during its turn. */
+function AyahOverlay({ page, box, selected, showSelection }: {
+  page: MushafPageData;
+  box: { w: number; h: number };
+  selected: AyahRegion | null;
+  showSelection: boolean;
+}) {
+  const s = useApp();
+  const layout = page.layout;
+  const geom = containBox(box.w, box.h, layout.width, layout.height);
+  const pageHighlights = layout.regions.filter((r) => s.highlights[r.key]);
+  const stopRegion = layout.regions.find((r) => s.stopPoint && r.key === s.stopPoint.key);
+  const rectStyle = (b: AyahRegion["rects"][number]) => ({
+    left: geom.left + b.x * geom.scale,
+    top: geom.top + b.y * geom.scale,
+    width: b.w * geom.scale,
+    height: b.h * geom.scale,
+  });
+  return (
+    <div className="pointer-events-none absolute inset-0" data-ayah-overlay={page.number}>
+      {pageHighlights.map((r) => {
+        const c = colorVar(s.highlights[r.key].color);
+        return r.rects.map((b, i) => (
+          <span key={`${r.key}-${i}`} className="absolute rounded-[3px]" style={{
+            ...rectStyle(b), backgroundColor: `rgb(${c} / 0.26)`,
+            boxShadow: `inset 0 -1.5px 0 rgb(${c} / 0.5)`,
+          }} />
+        ));
+      })}
+      {selected && showSelection && selected.page === page.number && selected.rects.map((b, i) => (
+        <span key={`sel-${i}`} className="absolute rounded-[3px] ring-1 ring-brass" style={{
+          ...rectStyle(b), backgroundColor: "color-mix(in oklab, var(--brass) 22%, transparent)",
+        }} />
+      ))}
+      {stopRegion && <>
+        {stopRegion.rects.map((b, i) => (
+          <span key={`stop-${i}`} data-stop-highlight={stopRegion.key} className="absolute rounded-[3px]" style={{
+            ...rectStyle(b), backgroundColor: "rgb(var(--hl-brown) / 0.26)",
+            boxShadow: "inset 0 -1.5px 0 rgb(var(--hl-brown) / 0.5)",
+          }} />
+        ))}
+        <span data-stop-star={stopRegion.key} className="absolute flex size-3.5 items-center justify-center rounded-full bg-brass shadow" style={{
+          left: geom.left + (stopRegion.marker.x - 1) * geom.scale,
+          top: geom.top + (stopRegion.marker.y - 12) * geom.scale,
+        }}><Star className="size-2 fill-current text-background" /></span>
+      </>}
     </div>
   );
 }
