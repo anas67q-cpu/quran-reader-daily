@@ -81,19 +81,21 @@
   --mushaf-paper-top: oklch(from #f7f1e3 l c h);
   --mushaf-paper-bottom: oklch(from #f0e6d0 l c h);
   --mushaf-paper-surface: linear-gradient(180deg, var(--mushaf-paper-top) 0%, var(--mushaf-paper-bottom) 100%);
-  --mushaf-leaf-light: oklch(0.97 0.022 87 / 65%);
-  --mushaf-leaf-shade: oklch(0.59 0.025 78 / 24%);
+  --mushaf-leaf-light: oklch(0.99 0.012 87 / 78%);
+  --mushaf-leaf-contour: oklch(0.58 0.024 78 / 36%);
+  --mushaf-leaf-contact: oklch(0.43 0.02 78 / 15%);
+  --mushaf-leaf-depth: linear-gradient(to left,
+    color-mix(in oklab, var(--mushaf-spine-ink) 12%, transparent),
+    color-mix(in oklab, var(--mushaf-spine-ink) 3%, transparent) 70%,
+    transparent);
+  --mushaf-leaf-shadow: 1px 0 1px var(--mushaf-leaf-contact);
+  --mushaf-leaf-rim: inset -1px 0 0 var(--mushaf-leaf-light);
   --mushaf-spine-ink: oklch(0.31 0.018 75);
   --mushaf-spine-shadow: linear-gradient(to right,
-    color-mix(in oklab, var(--mushaf-spine-ink) 17%, transparent) 0%,
-    color-mix(in oklab, var(--mushaf-spine-ink) 8%, transparent) 22%,
-    color-mix(in oklab, var(--mushaf-spine-ink) 2%, transparent) 62%,
+    color-mix(in oklab, var(--mushaf-spine-ink) 19%, transparent) 0%,
+    color-mix(in oklab, var(--mushaf-spine-ink) 10%, transparent) 12%,
+    color-mix(in oklab, var(--mushaf-spine-ink) 3%, transparent) 45%,
     transparent 100%);
-  --mushaf-leaf-stack: repeating-linear-gradient(to left,
-    var(--mushaf-leaf-light) 0px 1px,
-    var(--mushaf-leaf-shade) 1px 2px,
-    transparent 2px 3px);
-  --mushaf-leaf-fade: linear-gradient(to left, var(--foreground) 0%, transparent 100%);
 }
 
 /* Unframed, full-screen paper surface. Decoration is painted below the
@@ -126,9 +128,36 @@
 
 .mushaf-paper-depth::after {
   right: 0;
-  width: 7px;
-  background: var(--mushaf-leaf-stack);
-  mask-image: var(--mushaf-leaf-fade);
+  width: 8px;
+  background: var(--mushaf-leaf-depth);
+}
+
+/* Separate leaf contours bend at the head and foot of the outer edge,
+   like the reference's paper stack, without framing or shrinking the SVG. */
+.mushaf-paper-leaf {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  right: 1px;
+  width: 24px;
+  border-right: 1px solid var(--mushaf-leaf-contour);
+  border-radius: 0 23px 23px 0;
+  box-shadow: var(--mushaf-leaf-shadow), var(--mushaf-leaf-rim);
+  pointer-events: none;
+}
+
+.mushaf-paper-leaf-middle {
+  top: 0;
+  bottom: 0;
+  right: 4px;
+  border-radius: 0 20px 20px 0;
+}
+
+.mushaf-paper-leaf-front {
+  top: -1px;
+  bottom: -1px;
+  right: 7px;
+  border-radius: 0 18px 18px 0;
 }
 
 .mushaf-paper[data-page-side="left"] .mushaf-paper-depth {

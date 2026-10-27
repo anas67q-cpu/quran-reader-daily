@@ -324,7 +324,11 @@ function Reader() {
             className="mushaf-paper relative flex h-full w-full items-center justify-center"
             data-page-side={mushafPageSide(viewPage)}
           >
-            <div className="mushaf-paper-depth" aria-hidden="true" />
+            <div className="mushaf-paper-depth" aria-hidden="true">
+              <span className="mushaf-paper-leaf" />
+              <span className="mushaf-paper-leaf mushaf-paper-leaf-middle" />
+              <span className="mushaf-paper-leaf mushaf-paper-leaf-front" />
+            </div>
             <img
               key={viewPage}
               src={src}
