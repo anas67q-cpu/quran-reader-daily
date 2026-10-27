@@ -76,6 +76,63 @@
   --hairline: oklch(1 0 0 / 5%);
   --input: oklch(1 0 0 / 10%);
   --ring: var(--brass);
+
+  /* Preserve the reader's parchment; only the paper edges gain depth. */
+  --mushaf-paper-top: oklch(from #f7f1e3 l c h);
+  --mushaf-paper-bottom: oklch(from #f0e6d0 l c h);
+  --mushaf-paper-surface: linear-gradient(180deg, var(--mushaf-paper-top) 0%, var(--mushaf-paper-bottom) 100%);
+  --mushaf-leaf-light: oklch(0.97 0.022 87 / 65%);
+  --mushaf-leaf-shade: oklch(0.59 0.025 78 / 24%);
+  --mushaf-spine-ink: oklch(0.31 0.018 75);
+  --mushaf-spine-shadow: linear-gradient(to right,
+    color-mix(in oklab, var(--mushaf-spine-ink) 17%, transparent) 0%,
+    color-mix(in oklab, var(--mushaf-spine-ink) 8%, transparent) 22%,
+    color-mix(in oklab, var(--mushaf-spine-ink) 2%, transparent) 62%,
+    transparent 100%);
+  --mushaf-leaf-stack: repeating-linear-gradient(to left,
+    var(--mushaf-leaf-light) 0px 1px,
+    var(--mushaf-leaf-shade) 1px 2px,
+    transparent 2px 3px);
+  --mushaf-leaf-fade: linear-gradient(to left, var(--foreground) 0%, transparent 100%);
+}
+
+/* Unframed, full-screen paper surface. Decoration is painted below the
+   original SVG, never over its glyphs, and never participates in gestures. */
+.mushaf-paper {
+  background: var(--mushaf-paper-surface);
+}
+
+.mushaf-paper-depth {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.mushaf-paper-depth::before,
+.mushaf-paper-depth::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.mushaf-paper-depth::before {
+  left: 0;
+  width: 22px;
+  background: var(--mushaf-spine-shadow);
+}
+
+.mushaf-paper-depth::after {
+  right: 0;
+  width: 7px;
+  background: var(--mushaf-leaf-stack);
+  mask-image: var(--mushaf-leaf-fade);
+}
+
+.mushaf-paper[data-page-side="left"] .mushaf-paper-depth {
+  transform: scaleX(-1);
 }
 
 .dark {

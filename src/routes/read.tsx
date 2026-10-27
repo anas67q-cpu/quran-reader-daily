@@ -27,11 +27,21 @@ import {
   TOTAL_PAGES,
   SURAH_STARTS,
   SURAH_NAMES_AR,
+  mushafPageSide,
 } from "@/lib/quran-meta";
 import { KHATM_DUA } from "@/lib/verses";
 
 export const Route = createFileRoute("/read")({
-  head: () => ({ meta: [{ title: "القراءة — إقرأ" }] }),
+  head: () => ({
+    meta: [
+      { title: "القراءة — إقرأ: كل يوم" },
+      { name: "description", content: "اقرأ القرآن الكريم على صفحات مصحف المدينة، وتابع موضع توقفك." },
+      { property: "og:title", content: "القراءة — إقرأ: كل يوم" },
+      { property: "og:description", content: "اقرأ القرآن الكريم على صفحات مصحف المدينة، وتابع موضع توقفك." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Reader,
 });
 
@@ -311,16 +321,15 @@ function Reader() {
         )}
         {src && (
           <div
-            className="flex h-full w-full items-center justify-center"
-            style={{
-              background: "linear-gradient(180deg, #f7f1e3 0%, #f0e6d0 100%)",
-            }}
+            className="mushaf-paper relative flex h-full w-full items-center justify-center"
+            data-page-side={mushafPageSide(viewPage)}
           >
+            <div className="mushaf-paper-depth" aria-hidden="true" />
             <img
               key={viewPage}
               src={src}
               alt={`صفحة ${viewPage} — سورة ${surah.name}`}
-              className={`h-full w-full object-contain ${
+              className={`relative h-full w-full object-contain ${
                 slideDir === "next" ? "animate-slide-in-next" : slideDir === "prev" ? "animate-slide-in-prev" : ""
               }`}
               draggable={false}

@@ -11,6 +11,10 @@ export const Route = createFileRoute("/")({
     meta: [
       { title: "إقرأ: كل يوم — الرئيسية" },
       { name: "description", content: "لوحتك اليومية: ورد اليوم والتقدم في قراءة القرآن." },
+      { property: "og:title", content: "إقرأ: كل يوم — الرئيسية" },
+      { property: "og:description", content: "لوحتك اليومية: ورد اليوم والتقدم في قراءة القرآن." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Home,

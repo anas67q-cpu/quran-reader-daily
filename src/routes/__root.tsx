@@ -6,6 +6,7 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -30,7 +31,7 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error, reset }: ErrorComponentProps) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
@@ -77,8 +78,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "إقرأ: كل يوم — الرئيسية" },
       { name: "twitter:description", content: "لوحتك اليومية: ورد اليوم، التقدم، وآية ملهمة." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/08b6ce32-4e72-48a7-846f-0b72f58895a3/id-preview-a7e9f1d7--8ec229ce-5906-47ef-842c-7092068ff311.lovable.app-1783520707701.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/08b6ce32-4e72-48a7-846f-0b72f58895a3/id-preview-a7e9f1d7--8ec229ce-5906-47ef-842c-7092068ff311.lovable.app-1783520707701.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
