@@ -9,4 +9,6 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
-- Keep Mushaf physical page effects as pointer-inert CSS decoration beneath the existing SVG on its full-screen parchment surface; derive physical side from page parity, not navigation direction, so jumps and restored positions remain correct without changing image or ayah geometry.
+- Keep Mushaf physical effects as pointer-inert CSS beneath the original SVG, sized to its exact object-contain bounds over the full-screen parchment; derive physical side from page parity so jumps and restored positions never change image or ayah geometry.
+- Keep Arabic page-turn direction and completion rules in the tested page-turn module; animate decoded adjacent pages with Motion and carry the unchanged SVG-coordinate overlay with each leaf so dragging never reveals a blank page or detaches highlights.
+- Reuse the permanent IndexedDB page cache through useMushafPages, with only nearby decoded layouts held in memory; commit the active page only after a completed turn to preserve progress and stopping-point semantics.

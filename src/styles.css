@@ -96,6 +96,14 @@
     color-mix(in oklab, var(--mushaf-spine-ink) 10%, transparent) 12%,
     color-mix(in oklab, var(--mushaf-spine-ink) 3%, transparent) 45%,
     transparent 100%);
+  --mushaf-turn-contact: color-mix(in oklab, var(--mushaf-spine-ink) 24%, transparent);
+  --mushaf-turn-curl: linear-gradient(to right,
+    var(--mushaf-turn-contact) 0%,
+    var(--mushaf-paper-bottom) 12%,
+    var(--mushaf-paper-top) 55%,
+    var(--mushaf-leaf-light) 82%,
+    var(--mushaf-leaf-contour) 100%);
+  --mushaf-turn-shadow: -6px 0 12px var(--mushaf-leaf-contact);
 }
 
 /* Unframed, full-screen paper surface. Decoration is painted below the
@@ -162,6 +170,29 @@
 
 .mushaf-paper[data-page-side="left"] .mushaf-paper-depth {
   transform: scaleX(-1);
+}
+
+/* The parchment fills the stage, but contours belong only to the exact
+   object-contain image bounds. Never pad, crop or resize the Quran SVG. */
+.mushaf-image-paper {
+  isolation: isolate;
+}
+
+.mushaf-turn-fold {
+  background: var(--mushaf-turn-curl);
+  box-shadow: var(--mushaf-turn-shadow);
+  border-radius: 0 4px 4px 0;
+  transform-origin: right center;
+  will-change: transform, width;
+}
+
+.mushaf-turn-fold[data-turn-direction="prev"] {
+  rotate: y 180deg;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mushaf-turn-fold { display: none; }
 }
 
 .dark {
