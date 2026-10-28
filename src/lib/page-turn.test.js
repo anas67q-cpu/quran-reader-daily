@@ -35,8 +35,8 @@ describe("paper frame uses the unaltered contained SVG geometry", () => {
     expect(box.top).toBeCloseTo(2.0652173913, 8);
   });
   test("short opening page is centered rather than stretching its frame to the screen", () => {
-    const box = containBox(402, 645, 225, 235);
-    expect(box.scale * 235).toBeCloseTo(419.8666666667, 8);
-    expect(box.top).toBeCloseTo(112.5666666667, 8);
+    const box = containBox(402, 645, 235, 235);
+    expect(box.scale * 235).toBeCloseTo(402, 8);
+    expect(box.top).toBeCloseTo(121.5, 8);
   });
 });
