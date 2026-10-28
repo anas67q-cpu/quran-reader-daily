@@ -98,11 +98,11 @@
     transparent 100%);
   --mushaf-turn-contact: color-mix(in oklab, var(--mushaf-spine-ink) 24%, transparent);
   --mushaf-turn-curl: linear-gradient(to right,
-    var(--mushaf-turn-contact) 0%,
+    color-mix(in oklab, var(--mushaf-spine-ink) 24%, var(--mushaf-paper-bottom)) 0%,
     var(--mushaf-paper-bottom) 12%,
     var(--mushaf-paper-top) 55%,
-    var(--mushaf-leaf-light) 82%,
-    var(--mushaf-leaf-contour) 100%);
+    color-mix(in oklab, var(--mushaf-leaf-light), var(--mushaf-paper-top)) 82%,
+    color-mix(in oklab, var(--mushaf-spine-ink) 25%, var(--mushaf-paper-top)) 100%);
   --mushaf-turn-shadow: -6px 0 12px var(--mushaf-leaf-contact);
 }
 
@@ -179,7 +179,8 @@
 }
 
 .mushaf-turn-fold {
-  background: var(--mushaf-turn-curl);
+  background-color: var(--mushaf-paper-top);
+  background-image: var(--mushaf-turn-curl);
   box-shadow: var(--mushaf-turn-shadow);
   border-radius: 0 4px 4px 0;
   transform-origin: right center;
