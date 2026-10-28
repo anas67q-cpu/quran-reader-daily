@@ -180,7 +180,7 @@
 
 .mushaf-turn-fold {
   background-color: var(--mushaf-paper-top);
-  background: var(--mushaf-turn-curl);
+  background-image: var(--mushaf-turn-curl);
   box-shadow: var(--mushaf-turn-shadow);
   border-radius: 0 4px 4px 0;
   transform-origin: right center;
